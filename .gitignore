@@ -171,3 +171,4 @@ rcsb_processed_msa/
 MHC_Dados/
 mhc_finetune/
 boltz_checkpoints/
+symmetry.pkl
