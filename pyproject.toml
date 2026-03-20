@@ -23,7 +23,7 @@ dependencies = [
     "fairscale==0.4.13",
     "mashumaro==3.14",
     "modelcif==1.2",
-    "wandb==0.18.7",
+    "wandb==0.22.3",
     "click==8.1.7",
     "pyyaml==6.0.2",
     "biopython==1.84",
