@@ -172,3 +172,5 @@ MHC_Dados/
 mhc_finetune/
 boltz_checkpoints/
 symmetry.pkl
+mhc_data/dataset_limpo
+relatorio*

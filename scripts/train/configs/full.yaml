@@ -6,12 +6,12 @@ trainer:
   max_epochs: -1
   accumulate_grad_batches: 16 # 128 - Roberto: Alterei em 2026-03-19 para 16, para garantir que o modelo atualize os pesos e plote no WandB antes que a época de 100 samples termine.
   log_every_n_steps: 1 # (Padrão era 50) - Roberto: Adicionei em 2026-03-19 para forçar o PyTorch Lightning a enviar dados para o WandB a cada passo, gerando telemetria em tempo real.
-  limit_val_batches: 10 # (Padrão testava todas as 1286) - Roberto: Adicionei em 2026-03-19 para limitar a validação a 10 proteínas, evitando que a máquina perca 20+ horas só validando a cada época.
+#  limit_val_batches: 10 # (Padrão testava todas as 1286) - Roberto: Adicionei em 2026-03-19 para limitar a validação a 10 proteínas, evitando que a máquina perca 20+ horas só validando a cada época.
   # to adjust depending on the number of devices
 
 # Optional set wandb here
 wandb:
-  name: boltz
+  name: ${oc.env:RUN_NAME,"Standard Run"} # Roberto: Adicionei em 2026-04-15 para permitir nomear as execuções diretamente pela variável de ambiente RUN_NAME, facilitando a organização no WandB.
   project: nempa-boltz
   entity: nempa-ufba-lab
 
@@ -19,6 +19,7 @@ wandb:
 output: /home/gpu/nempa-boltz/mhc_finetune # /mhc_finetune - Roberto: Alterei em 2026-03-19 para o caminho absoluto para evitar problemas de permissão e salvar no local correto.
 pretrained: boltz_checkpoints/boltz1.ckpt
 resume: null # last - Roberto: Alterei em 2026-03-19 para null, garantindo que o treino comece limpo do boltz1.ckpt e não herde checkpoints corrompidos das tentativas falhas anteriores.
+# Roberto: Mantido em null em 2026-04-15 para garantir que o fine-tuning comece do checkpoint odficial sobre os dados higienizados.
 disable_checkpoint: false
 matmul_precision: null
 save_top_k: 3 # -1 - Roberto: Alterei em 2026-03-19 para 3, pois isso pode ser mais adequado para o estágio inicial de configuração. Talvez seja necessário ajustar dependendo do caso.
@@ -26,7 +27,7 @@ save_top_k: 3 # -1 - Roberto: Alterei em 2026-03-19 para 3, pois isso pode ser m
 data:
   datasets:
     - _target_: boltz.data.module.training.DatasetConfig
-      target_dir: rcsb_processed_targets
+      target_dir: mhc_data/dataset_limpo # rcsb_processed_targets - Roberto: Alterei em 2026-04-15 para apontar para o dataset limpo de treino.
       msa_dir: rcsb_processed_msa
       prob: 1.0
       sampler:
@@ -35,15 +36,29 @@ data:
         _target_: boltz.data.crop.boltz.BoltzCropper
         min_neighborhood: 0
         max_neighborhood: 40
-      split: ./mhc_data/mhc_split.txt
+      split: ./scripts/train/assets/validation_ids.txt # ./mhc_data/mhc_train.txt - Roberto: Alterei em 2026-04-15 para usar o mesmo split de validação, garantindo que as proteínas usadas para validação sejam estritamente isoladas do treino, evitando vazamento de dados (Data Leakage).
+      # Roberto: Alterei em 2026-04-15 para usar a lista de 1132 proteínas limpas para o fine-tuning real.
+
+  # val_datasets:
+  #   - _target_: boltz.data.module.training.DatasetConfig
+  #     target_dir: mhc_data/dataset_limpo # Roberto: Bloco adicionado em 2026-04-15 para resolver o vazamento de dados (Data Leakage).
+  #     msa_dir: rcsb_processed_msa
+  #     prob: 1.0
+  #     sampler:
+  #       _target_: boltz.data.sample.cluster.ClusterSampler
+  #     cropper:
+  #       _target_: boltz.data.crop.boltz.BoltzCropper
+  #       min_neighborhood: 0
+  #       max_neighborhood: 40
+  #     split: ./scripts/train/assets/validation_ids.txt # Roberto: Adicionado em 2026-04-15 para isolar estritamente o Silence Buffer na validação.
 
   filters:
     - _target_: boltz.data.filter.dynamic.size.SizeFilter
       min_chains: 1
       max_chains: 300
-    - _target_: boltz.data.filter.dynamic.date.DateFilter
-      date: "2021-09-30"
-      ref: released
+    # - _target_: b oltz.data.filter.dynamic.date.DateFilter # Roberto: Comentei em 2026-04-15 para permitir o treino com as proteínas de 2022 que seriam barradas pelo limite de 2021.
+    #  date: "2021-09-30"
+    #  ref: released
     - _target_: boltz.data.filter.dynamic.resolution.ResolutionFilter
       resolution: 4.0
 
