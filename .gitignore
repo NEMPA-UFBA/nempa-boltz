@@ -170,7 +170,6 @@ rcsb_processed_targets/
 rcsb_processed_msa/
 MHC_Dados/
 mhc_finetune/
-boltz_checkpoints/
 symmetry.pkl
 mhc_data/dataset_limpo
 relatorio*
