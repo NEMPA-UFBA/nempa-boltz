@@ -174,3 +174,6 @@ symmetry.pkl
 mhc_data/dataset_limpo
 relatorio*
 cif_files/
+get_subsamples/mhc_samples/msa
+get_subsamples/mhc_samples/
+temp_toy
