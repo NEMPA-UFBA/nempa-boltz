@@ -1243,6 +1243,65 @@ def predict(  # noqa: C901, PLR0915, PLR0912
         use_paired_feature=model == "boltz2",
     )
 
+<<<<<<< HEAD
+=======
+    # Load processed data
+    processed_dir = out_dir / "processed"
+    processed = BoltzProcessedInput(
+        manifest=Manifest.load(processed_dir / "manifest.json"),
+        targets_dir=processed_dir / "structures",
+        msa_dir=processed_dir / "msa",
+        constraints_dir=(processed_dir / "constraints")
+        if (processed_dir / "constraints").exists()
+        else None,
+    )
+
+    # Create data module
+    data_module = BoltzInferenceDataModule(
+        manifest=processed.manifest,
+        target_dir=processed.targets_dir,
+        msa_dir=processed.msa_dir,
+        num_workers=num_workers,
+        constraints_dir=processed.constraints_dir,
+    )
+
+    # Load model
+    if checkpoint is None:
+        checkpoint = cache / "boltz1_conf.ckpt"
+
+    predict_args = {
+        "recycling_steps": recycling_steps,
+        "sampling_steps": sampling_steps,
+        "diffusion_samples": diffusion_samples,
+        "write_confidence_summary": False,
+        "write_full_pae": write_full_pae,
+        "write_full_pde": write_full_pde,
+    }
+    diffusion_params = BoltzDiffusionParams()
+    diffusion_params.step_scale = step_scale
+
+    pairformer_args = PairformerArgs()
+    msa_module_args = MSAModuleArgs()
+
+    steering_args = BoltzSteeringParams()
+    if no_potentials:
+        steering_args.fk_steering = False
+        steering_args.guidance_update = False
+
+    model_module: Boltz1 = Boltz1.load_from_checkpoint(
+        checkpoint,
+        strict=True,
+        predict_args=predict_args,
+        map_location="cpu",
+        diffusion_process_args=asdict(diffusion_params),
+        ema=False,
+        pairformer_args=asdict(pairformer_args),
+        msa_module_args=asdict(msa_module_args),
+        steering_args=asdict(steering_args),
+    )
+    model_module.eval()
+
+>>>>>>> origin/boltz-v1
     # Create prediction writer
     pred_writer = BoltzWriter(
         data_dir=processed.targets_dir,

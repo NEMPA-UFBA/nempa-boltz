@@ -1,0 +1,31 @@
+            if self.overfit is not None:
+                size = min(size, self.overfit)
+            if idx < size:
+                break
+            idx -= size
+
+        # Get a sample from the dataset
+        record = dataset.manifest.records[idx]
+
+        # Get the structure
+        try:
+            input_data = load_input(record, dataset.target_dir, dataset.msa_dir)
+        except Exception as e:
+            print(f"Failed to load input for {record.id} with error {e}. Skipping.")
+            return self.__getitem__(0)
+
+        # Tokenize structure
+        try:
+            tokenized = dataset.tokenizer.tokenize(input_data)
+        except Exception as e:
+            print(f"Tokenizer failed on {record.id} with error {e}. Skipping.")
+            return self.__getitem__(0)
+
+        # Compute crop
+        try:
+            if self.crop_validation and (self.max_tokens is not None):
+                tokenized = dataset.cropper.crop(
+                    tokenized,
+                    max_tokens=self.max_tokens,
+                    random=self.random,
+                    max_atoms=self.max_atoms,

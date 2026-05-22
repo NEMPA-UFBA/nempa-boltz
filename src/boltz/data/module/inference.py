@@ -176,6 +176,7 @@ class PredictionDataset(torch.utils.data.Dataset):
         try:
             tokenized = self.tokenizer.tokenize(input_data)
         except Exception as e:  # noqa: BLE001
+            print('IKARO ESTEVE AQ 22222222222222222')
             print(f"Tokenizer failed on {record.id} with error {e}. Skipping.")  # noqa: T201
             return self.__getitem__(0)
 

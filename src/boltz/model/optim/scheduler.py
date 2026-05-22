@@ -16,6 +16,10 @@ class AlphaFoldLRScheduler(torch.optim.lr_scheduler._LRScheduler):
         self,
         optimizer: torch.optim.Optimizer,
         last_epoch: int = -1,
+<<<<<<< HEAD
+=======
+
+>>>>>>> origin/boltz-v1
         base_lr: float = 0.0,
         max_lr: float = 1.8e-3,
         warmup_no_steps: int = 1000,
@@ -61,6 +65,10 @@ class AlphaFoldLRScheduler(torch.optim.lr_scheduler._LRScheduler):
 
         self.optimizer = optimizer
         self.last_epoch = last_epoch
+<<<<<<< HEAD
+=======
+
+>>>>>>> origin/boltz-v1
         self.base_lr = base_lr
         self.max_lr = max_lr
         self.warmup_no_steps = warmup_no_steps

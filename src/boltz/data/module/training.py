@@ -102,7 +102,11 @@ def load_input(record: Record, target_dir: Path, msa_dir: Path) -> Input:
     """
     # Load the structure
     structure = np.load(target_dir / "structures" / f"{record.id}.npz")
+<<<<<<< HEAD
 
+=======
+    
+>>>>>>> origin/boltz-v1
     # In order to add cyclic_period to chains if it does not exist
     # Extract the chains array
     chains = structure["chains"]
@@ -119,12 +123,20 @@ def load_input(record: Record, target_dir: Path, msa_dir: Path) -> Input:
         new_chains["cyclic_period"] = 0
         # Replace old chains array with new one
         chains = new_chains
+<<<<<<< HEAD
 
+=======
+    
+>>>>>>> origin/boltz-v1
     structure = Structure(
         atoms=structure["atoms"],
         bonds=structure["bonds"],
         residues=structure["residues"],
+<<<<<<< HEAD
         chains=chains,  # chains var accounting for missing cyclic_period
+=======
+        chains=chains, # chains var accounting for missing cyclic_period
+>>>>>>> origin/boltz-v1
         connections=structure["connections"].astype(Connection),
         interfaces=structure["interfaces"],
         mask=structure["mask"],
@@ -275,6 +287,7 @@ class TrainingDataset(torch.utils.data.Dataset):
         try:
             tokenized = dataset.tokenizer.tokenize(input_data)
         except Exception as e:
+            print('IKARO ESTEVE AQ 1111111')
             print(f"Tokenizer failed on {sample.record.id} with error {e}. Skipping.")
             return self.__getitem__(idx)
 
@@ -421,6 +434,7 @@ class ValidationDataset(torch.utils.data.Dataset):
         try:
             tokenized = dataset.tokenizer.tokenize(input_data)
         except Exception as e:
+            print('IKARO ESTEVE AQ')
             print(f"Tokenizer failed on {record.id} with error {e}. Skipping.")
             return self.__getitem__(0)
 
@@ -470,6 +484,7 @@ class ValidationDataset(torch.utils.data.Dataset):
             print(f"Featurizer failed on {record.id} with error {e}. Skipping.")
             return self.__getitem__(0)
 
+        print(f"Validation sample {record.id} successfully loaded.")
         return features
 
     def __len__(self) -> int:
