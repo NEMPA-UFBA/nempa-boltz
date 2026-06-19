@@ -177,3 +177,9 @@ cif_files/
 get_subsamples/mhc_samples/msa
 get_subsamples/mhc_samples/
 temp_toy
+boltz_checkpoints/
+mhc_finetune_2
+*.fasta
+get_subsamples/dados_teste_temporal/yaml/
+get_subsamples/dados_teste_temporal_missing/yaml/
+get_subsamples/dados_validacao/yaml/
