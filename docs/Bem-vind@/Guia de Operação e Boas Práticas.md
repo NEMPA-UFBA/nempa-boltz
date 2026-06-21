@@ -49,3 +49,46 @@ A navegação para as pastas de trabalho deve ser efetuada imediatamente após a
 ```Bash
 cd /opt/projeto_cmcad/workspaces/ikaro  # (Substituir pelo respectivo perfil)
 ```
+
+## 4. Isolamento de Dependências (Ambientes Virtuais)
+A instalação de pacotes Python (pip install) de forma global no servidor é estritamente proibida. A alteração de versões de bibliotecas globais pode quebrar os pipelines de predição do Boltz ou os scripts dos demais desenvolvedores.
+
+Cada membro da equipe deve criar e gerenciar seus próprios ambientes virtuais dentro de seu respectivo workspace:
+
+```Bash
+# Criação do ambiente virtual (exemplo com venv)
+python3 -m venv /opt/projeto_cmcad/workspaces/nome_do_usuario/meu_ambiente
+
+# Ativação do ambiente antes de instalar pacotes ou rodar scripts
+source /opt/projeto_cmcad/workspaces/nome_do_usuario/meu_ambiente/bin/activate
+```
+
+Com o ambiente ativado, qualquer comando pip install ficará restrito àquela pasta específica, garantindo isolamento total de dependências.
+
+## 5. Persistência de Processos (Prevenção contra Quedas de SSH)
+Treinamentos de rede neural e predições em lote podem demorar horas ou dias. Se o comando for executado diretamente no terminal padrão, o processo será aniquilado sumariamente caso a conexão de internet do usuário oscile ou o computador local seja desligado (fechamento da sessão SSH).
+
+Para processos longos, deve-se utilizar obrigatoriamente um multiplexador de terminal, como o tmux ou screen:
+
+```Bash
+# 1. Inicia uma sessão persistente chamada "treino_boltz"
+tmux new -s treino_boltz
+
+# 2. Dentro da sessão, executa-se o comando normalmente
+usar_gpu boltz train ....
+
+# 3. Para sair do terminal e deixar rodando (Detach): Pressione Ctrl+B, solte, e aperte D.
+
+# 4. Para voltar à sessão no dia seguinte:
+tmux attach -t treino_boltz
+```
+## 6. Monitoramento de Fila da GPU
+Quando o sistema negar acesso à placa de vídeo informando que ela já está em uso, a equipe dispõe de ferramentas para verificar qual integrante está alocando o recurso e o status do processamento, facilitando o alinhamento interno (em breve).
+
+Para visualizar o consumo de VRAM e os processos ativos em tempo real, executa-se o comando:
+
+```Bash
+watch -n 2 nvidia-smi
+```
+
+(Para sair da tela de monitoramento, utiliza-se o atalho Ctrl+C).
