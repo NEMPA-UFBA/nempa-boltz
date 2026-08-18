@@ -13,6 +13,7 @@ from boltz.data import const
 from boltz.data.mol import (
     minimum_lddt_symmetry_coords,
 )
+from boltz.model.layers.lora import LoRAConfig, apply_lora_to_linear_layers
 from boltz.model.layers.pairformer import PairformerModule
 from boltz.model.loss.bfactor import bfactor_loss_fn
 from boltz.model.loss.confidencev2 import (
@@ -357,6 +358,11 @@ class Boltz2(LightningModule):
                     and "out_token_feat_update" not in name
                 ):
                     param.requires_grad = False
+
+        self.lora_config = None
+        if lora_args is not None:
+            self.lora_config = LoRAConfig(**lora_args)
+            apply_lora_to_linear_layers(self, self.lora_config)
 
     def setup(self, stage: str) -> None:
         """Set the model for training, validation and inference."""

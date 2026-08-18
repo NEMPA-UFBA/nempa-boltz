@@ -14,6 +14,8 @@ from boltz.data.feature.symmetry import (
     minimum_lddt_symmetry_coords,
     minimum_symmetry_coords,
 )
+
+from boltz.model.layers.lora import LoRAConfig, apply_lora_to_linear_layers
 from boltz.model.loss.confidence import confidence_loss
 from boltz.model.loss.distogram import distogram_loss
 from boltz.model.loss.validation import (
@@ -260,6 +262,11 @@ class Boltz1(LightningModule):
             for name, param in self.named_parameters():
                 if name.split(".")[0] != "confidence_module":
                     param.requires_grad = False
+
+        self.lora_config = None
+        if lora_args is not None:
+            self.lora_config = LoRAConfig(**lora_args)
+            apply_lora_to_linear_layers(self, self.lora_config)
 
     def setup(self, stage: str) -> None:
         """Set the model for training, validation and inference."""
