@@ -79,6 +79,7 @@ class Boltz1(LightningModule):
         predict_args: Optional[dict[str, Any]] = None,
         steering_args: Optional[dict[str, Any]] = None,
         use_kernels: bool = False,
+        lora_args: Optional[dict[str, Any]] = None,
     ) -> None:
         super().__init__()
 
@@ -266,7 +267,12 @@ class Boltz1(LightningModule):
         self.lora_config = None
         if lora_args is not None:
             self.lora_config = LoRAConfig(**lora_args)
-            apply_lora_to_linear_layers(self, self.lora_config)
+            num_lora_layers = apply_lora_to_linear_layers(self, self.lora_config)
+            if num_lora_layers == 0:
+                raise ValueError(
+                    "LoRA target_modules matched no nn.Linear modules. "
+                    "Check model.lora_args.target_modules."
+                )
 
     def setup(self, stage: str) -> None:
         """Set the model for training, validation and inference."""

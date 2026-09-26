@@ -97,6 +97,34 @@ Here is an example of how to set multiple dataset sources like the PDB and OpenF
 
 ## Run the training script
 
+### LoRA fine-tuning (Boltz-1)
+
+The fork provides a LoRA configuration at `scripts/train/configs/full_lora.yaml`.
+Before running, replace the checkpoint, output, processed target, MSA, and
+symmetry paths in that file. The default adapters use rank 8 and target linear
+layers inside `pairformer_module` and `msa_module`; only LoRA parameters are
+optimized. The initial config uses 1,000 samples per epoch, 10 epochs, and a
+conservative maximum learning rate of `1e-4` as a starting point, not a
+universally optimal value.
+
+Run a short single-device smoke test first. The explicit overrides limit the
+test; `debug=1` alone does not limit the number of epochs:
+
+```bash
+python scripts/train/train.py scripts/train/configs/full_lora.yaml debug=1 trainer.max_epochs=1 data.samples_per_epoch=4 trainer.accumulate_grad_batches=1
+```
+
+After confirming that data loading, checkpoint loading, and validation work,
+start the configured fine-tuning run:
+
+```bash
+python scripts/train/train.py scripts/train/configs/full_lora.yaml
+```
+
+The pretrained checkpoint is loaded as the frozen base model. LoRA adapter
+weights are initialized separately and trained; checkpoints are written to the
+configured `output` directory. Do not set `resume` for a new fine-tuning run.
+
 Before running the full training, we recommend using the debug flag. This turns off DDP (sets single device) and sets `num_workers` to 0 so everything is in a single process, as well as disabling wandb:
 
     python scripts/train/train.py scripts/train/configs/structure.yaml debug=1

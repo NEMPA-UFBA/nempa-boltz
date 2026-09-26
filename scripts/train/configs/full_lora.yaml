@@ -3,8 +3,8 @@ trainer:
   devices: 1
   precision: 32
   gradient_clip_val: 10.0
-  max_epochs: -1
-  accumulate_grad_batches: 128    # to adjust depending on the number of devices
+  max_epochs: 10
+  accumulate_grad_batches: 8
 
 # Optional set wandb here
 # wandb:
@@ -14,12 +14,11 @@ trainer:
 
 
 output: SET_PATH_HERE
-pretrained: PATH_TO_STRUCTURE_CHECKPOINT_FILE
+pretrained: PATH_TO_CHECKPOINT_FILE
 resume: null
 disable_checkpoint: false
 matmul_precision: null
-save_top_k: -1
-load_confidence_from_trunk: false  # should be set to true only when starting from scratch, not from a pretrained confidence model
+save_top_k: 3
 
 data:
   datasets:
@@ -57,7 +56,7 @@ data:
   pad_to_max_tokens: true
   pad_to_max_atoms: true
   pad_to_max_seqs: true
-  samples_per_epoch: 100000
+  samples_per_epoch: 1000
   batch_size: 1
   num_workers: 4
   random_seed: 42
@@ -91,6 +90,14 @@ model:
   ligand_rmsd_weight: 10.0
   ema: true
   ema_decay: 0.999
+  lora_args:
+    r: 8
+    lora_alpha: 16
+    lora_dropout: 0.05
+    target_modules:
+      - pairformer_module
+      - msa_module
+    bias: none
 
   embedder_args:
     atom_encoder_depth: 3
@@ -126,7 +133,7 @@ model:
     activation_checkpointing: true
     offload_to_cpu: false
 
-  structure_prediction_training: false
+  structure_prediction_training: true
   confidence_prediction: true
   alpha_pae: 1
   confidence_imitate_trunk: true
@@ -156,10 +163,10 @@ model:
     adam_eps: 0.00000001
     lr_scheduler: af3
     base_lr: 0.0
-    max_lr: 0.0018
-    lr_warmup_no_steps: 1000
-    lr_start_decay_after_n_steps: 50000
-    lr_decay_every_n_steps: 50000
+    max_lr: 0.0001
+    lr_warmup_no_steps: 100
+    lr_start_decay_after_n_steps: 5000
+    lr_decay_every_n_steps: 5000
     lr_decay_factor: 0.95
     symmetry_correction: true
     run_confidence_sequentially: false
@@ -198,4 +205,4 @@ model:
     fk_lambda: 4.0
     fk_resampling_interval: 3
     physical_guidance_update: False
-    num_gd_steps: 16 
+    num_gd_steps: 16
