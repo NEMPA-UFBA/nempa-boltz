@@ -57,7 +57,7 @@ class LoRALinear(nn.Module):
         self.lora_A = nn.Parameter(torch.empty(self.in_features, r))
         self.lora_B = nn.Parameter(torch.zeros(r, self.out_features))
         self.scaling = self.lora_alpha / self.r
-        nn.init.kaiming_uniform_(self.lora_A, a=math.sqrt(5))
+        nn.init.kaiming_uniform_(self.lora_A.T, a=math.sqrt(5))
 
         # Keep pretrained base weights fixed and train only the adapters.
         self.original_layer.weight.requires_grad_(False)
