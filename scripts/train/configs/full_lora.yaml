@@ -1,17 +1,10 @@
 trainer:
   accelerator: gpu
   devices: 1
-  precision: 32
+  precision: bf16-mixed
   gradient_clip_val: 10.0
   max_epochs: 10
   accumulate_grad_batches: 8
-
-# Optional set wandb here
-# wandb:
-#   name: boltz
-#   project: boltz
-#   entity: boltz
-
 
 output: SET_PATH_HERE
 pretrained: PATH_TO_CHECKPOINT_FILE
@@ -56,7 +49,7 @@ data:
   pad_to_max_tokens: true
   pad_to_max_atoms: true
   pad_to_max_seqs: true
-  samples_per_epoch: 1000
+  samples_per_epoch: 4000
   batch_size: 1
   num_workers: 4
   random_seed: 42
@@ -86,17 +79,21 @@ model:
   atoms_per_window_queries: 32
   atoms_per_window_keys: 128
   compile_pairformer: false
+  use_kernels: false
   nucleotide_rmsd_weight: 5.0
   ligand_rmsd_weight: 10.0
   ema: true
-  ema_decay: 0.999
+  ema_decay: 0.99
   lora_args:
     r: 8
     lora_alpha: 16
     lora_dropout: 0.05
     target_modules:
-      - pairformer_module
-      - msa_module
+      - proj_q
+      - proj_k
+      - proj_v
+      - proj_g
+      - proj_o
     bias: none
 
   embedder_args:
@@ -163,7 +160,7 @@ model:
     adam_eps: 0.00000001
     lr_scheduler: af3
     base_lr: 0.0
-    max_lr: 0.0001
+    max_lr: 3e-4
     lr_warmup_no_steps: 100
     lr_start_decay_after_n_steps: 5000
     lr_decay_every_n_steps: 5000
@@ -200,9 +197,9 @@ model:
     ligand_loss_weight: 10.0
 
   steering_args:
-    fk_steering: False
+    fk_steering: false
     num_particles: 3
     fk_lambda: 4.0
     fk_resampling_interval: 3
-    physical_guidance_update: False
+    physical_guidance_update: false
     num_gd_steps: 16
