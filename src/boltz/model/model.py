@@ -14,6 +14,8 @@ from boltz.data.feature.symmetry import (
     minimum_lddt_symmetry_coords,
     minimum_symmetry_coords,
 )
+
+from boltz.model.layers.lora import LoRAConfig, apply_lora_to_linear_layers
 from boltz.model.loss.confidence import confidence_loss
 from boltz.model.loss.distogram import distogram_loss
 from boltz.model.loss.validation import (
@@ -76,6 +78,7 @@ class Boltz1(LightningModule):
         min_dist: float = 2.0,
         max_dist: float = 22.0,
         predict_args: Optional[dict[str, Any]] = None,
+        lora_args: Optional[dict[str, Any]] = None,
     ) -> None:
         super().__init__()
 
@@ -257,6 +260,16 @@ class Boltz1(LightningModule):
             for name, param in self.named_parameters():
                 if name.split(".")[0] != "confidence_module":
                     param.requires_grad = False
+
+        self.lora_config = None
+        if lora_args is not None:
+            self.lora_config = LoRAConfig(**lora_args)
+            num_lora_layers = apply_lora_to_linear_layers(self, self.lora_config)
+            if num_lora_layers == 0:
+                raise ValueError(
+                    "LoRA target_modules matched no nn.Linear modules. "
+                    "Check model.lora_args.target_modules."
+                )
 
     def forward(
         self,
