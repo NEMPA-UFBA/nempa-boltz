@@ -3,10 +3,10 @@ trainer:
   devices: 1
   precision: 32 # bf16-mixed - Roberto: Alterei em 2026-03-19 para 32, pois a precisão mista estava causando underflow e gerando o erro linalg.svd (matrizes colapsadas).
   gradient_clip_val: 1.0 # 10.0 - Roberto: Alterei em 2026-03-19 para 1.0, para segurar saltos muito fortes no início do fine-tuning.
-  max_epochs: -1
+  max_epochs: 20 # -1 - Roberto: Alterei em 2026-09-23 para 20, para limitar o fine-tuning a 20 �pocas, evitando que o modelo se sobreajuste aos dados de treino.
   accumulate_grad_batches: 16 # 128 - Roberto: Alterei em 2026-03-19 para 16, para garantir que o modelo atualize os pesos e plote no WandB antes que a época de 100 samples termine.
   log_every_n_steps: 1 # (Padrão era 50) - Roberto: Adicionei em 2026-03-19 para forçar o PyTorch Lightning a enviar dados para o WandB a cada passo, gerando telemetria em tempo real.
-#  limit_val_batches: 10 # (Padrão testava todas as 1286) - Roberto: Adicionei em 2026-03-19 para limitar a validação a 10 proteínas, evitando que a máquina perca 20+ horas só validando a cada época.
+  limit_val_batches: 10 # (Padrão testava todas as 1286) - Roberto: Adicionei em 2026-03-19 para limitar a validação a 10 proteínas, evitando que a máquina perca 20+ horas só validando a cada época.
   # to adjust depending on the number of devices
 
 # Optional set wandb here
@@ -18,7 +18,7 @@ wandb:
 
 output: /home/gpu/nempa-boltz/mhc_finetune # /mhc_finetune - Roberto: Alterei em 2026-03-19 para o caminho absoluto para evitar problemas de permissão e salvar no local correto.
 pretrained: boltz_checkpoints/boltz1.ckpt
-resume: null # last - Roberto: Alterei em 2026-03-19 para null, garantindo que o treino comece limpo do boltz1.ckpt e não herde checkpoints corrompidos das tentativas falhas anteriores.
+resume: /home/gpu/nempa-boltz/mhc_finetune/nempa-boltz/k0cr7qy9/checkpoints/last.ckpt # null # last - Roberto: Alterei em 2026-03-19 para null, garantindo que o treino comece limpo do boltz1.ckpt e não herde checkpoints corrompidos das tentativas falhas anteriores.
 # Roberto: Mantido em null em 2026-04-15 para garantir que o fine-tuning comece do checkpoint odficial sobre os dados higienizados.
 disable_checkpoint: false
 matmul_precision: null
@@ -27,7 +27,7 @@ save_top_k: 3 # -1 - Roberto: Alterei em 2026-03-19 para 3, pois isso pode ser m
 data:
   datasets:
     - _target_: boltz.data.module.training.DatasetConfig
-      target_dir: mhc_data/dataset_limpo # rcsb_processed_targets - Roberto: Alterei em 2026-04-15 para apontar para o dataset limpo de treino.
+      target_dir: rcsb_processed_targets # mhc_data/dataset_limpo # rcsb_processed_targets - Roberto: Alterei em 2026-04-15 para apontar para o dataset limpo de treino.
       msa_dir: rcsb_processed_msa
       prob: 1.0
       sampler:

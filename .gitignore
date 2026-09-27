@@ -183,3 +183,5 @@ mhc_finetune_2
 get_subsamples/dados_teste_temporal/yaml/
 get_subsamples/dados_teste_temporal_missing/yaml/
 get_subsamples/dados_validacao/yaml/
+openfold_processed_msa/
+openfold_processed_targets/
