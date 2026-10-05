@@ -18,15 +18,29 @@ from pytorch_lightning.utilities import rank_zero_only
 from boltz.data.module.training import BoltzTrainingDataModule, DataConfig
 
 
-def load_pretrained_weights(model: LightningModule, checkpoint_path: str) -> None:
-    """Load a pretrained Boltz checkpoint into a configured model.
+def load_pretrained_weights(
+    model: LightningModule,
+    checkpoint_path: str,
+    load_confidence_from_trunk: bool = False,
+) -> None:
+    """Load pretrained weights, optionally copying the trunk into confidence.
 
-    For LoRA-wrapped linear layers, map the pretrained ``layer.weight`` and
+    For LoRA-wrapped linear layers, map pretrained ``layer.weight`` and
     ``layer.bias`` keys to ``layer.original_layer.weight`` and
     ``layer.original_layer.bias``. Keep newly initialized adapter parameters.
     """
-    checkpoint = torch.load(checkpoint_path, map_location="cpu")
+    checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
     state_dict = checkpoint.get("state_dict", checkpoint)
+    if load_confidence_from_trunk:
+        confidence_state_dict = {
+            f"confidence_module.{key}": value
+            for key, value in state_dict.items()
+            if not key.startswith("structure_module")
+            and not key.startswith("distogram_module")
+        }
+        confidence_state_dict.update(state_dict)
+        state_dict = confidence_state_dict
+
     model_keys = set(model.state_dict())
     mapped_state_dict = {}
 
@@ -173,53 +187,11 @@ def train(raw_config: str, args: list[str]) -> None:  # noqa: C901, PLR0912, PLR
     model_module = cfg.model
 
     if cfg.pretrained and not cfg.resume:
-        # Optionally broadcast the pretrained trunk into the confidence module.
-        if cfg.load_confidence_from_trunk:
-            checkpoint = torch.load(cfg.pretrained, map_location="cpu")
-            state_dict = checkpoint.get("state_dict", checkpoint)
-            new_state_dict = {}
-            for key, value in state_dict.items():
-                if not key.startswith("structure_module") and not key.startswith(
-                    "distogram_module"
-                ):
-                    new_key = "confidence_module." + key
-                    new_state_dict[new_key] = value
-            new_state_dict.update(state_dict)
-            checkpoint["state_dict"] = new_state_dict
-            checkpoint_path = cfg.pretrained
-            # Load the transformed state dict in memory without writing a temp file.
-            model_keys = set(model_module.state_dict())
-            mapped_state_dict = {}
-            for key, value in new_state_dict.items():
-                mapped_key = key
-                if mapped_key not in model_keys:
-                    prefix, separator, leaf = key.rpartition(".")
-                    if separator:
-                        candidate = f"{prefix}.original_layer.{leaf}"
-                        if candidate in model_keys:
-                            mapped_key = candidate
-                mapped_state_dict[mapped_key] = value
-            incompatible = model_module.load_state_dict(
-                mapped_state_dict, strict=False
-            )
-            unexpected = list(incompatible.unexpected_keys)
-            missing = [
-                key
-                for key in incompatible.missing_keys
-                if ".lora_A" not in key and ".lora_B" not in key
-            ]
-            if unexpected or missing:
-                raise RuntimeError(
-                    "Checkpoint loading with load_confidence_from_trunk produced "
-                    f"unexpected keys {unexpected[:20]} and missing keys "
-                    f"{missing[:20]}. Refusing partial initialization."
-                )
-            print(
-                f"Loaded pretrained trunk from {checkpoint_path} into the "
-                "configured model; LoRA adapters remain initialized."
-            )
-        else:
-            load_pretrained_weights(model_module, cfg.pretrained)
+        load_pretrained_weights(
+            model_module,
+            cfg.pretrained,
+            load_confidence_from_trunk=cfg.load_confidence_from_trunk,
+        )
 
     # Create checkpoint callback
     callbacks = []
