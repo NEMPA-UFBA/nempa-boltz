@@ -537,6 +537,9 @@ class PairformerModule(nn.Module):
         else:
             chunk_size_tri_attn = None
 
+        if self.training and torch.is_grad_enabled() and not z.requires_grad:
+            z = z.detach().requires_grad_(True)
+
         for layer in self.layers:
             s, z = layer(s, z, mask, pair_mask, chunk_size_tri_attn)
         return s, z
