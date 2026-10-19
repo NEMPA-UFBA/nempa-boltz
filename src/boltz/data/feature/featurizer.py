@@ -1,7 +1,7 @@
 import math
 import random
 from typing import Optional
-
+from collections import deque
 import numba
 import numpy as np
 import numpy.typing as npt
@@ -191,9 +191,9 @@ def construct_paired_msa(  # noqa: C901, PLR0915, PLR0912
     for chain_id, chain_msa in msa.items():
         sequences = chain_msa.sequences
         sequences = sequences[sequences["taxonomy"] != -1]
-        for sequence in sequences:
-            seq_idx = sequence["seq_idx"]
-            taxon = sequence["taxonomy"]
+        # Iterating the columns yields the same numpy scalars, in the same order,
+        # as indexing each structured row, without building a np.void per row.
+        for seq_idx, taxon in zip(sequences["seq_idx"], sequences["taxonomy"]):
             taxonomy_map.setdefault(taxon, []).append((chain_id, seq_idx))
 
     # Remove taxonomies with only one sequence and sort by the
@@ -207,12 +207,20 @@ def construct_paired_msa(  # noqa: C901, PLR0915, PLR0912
 
     # Keep track of the sequences available per chain, keeping the original
     # order of the sequences in the MSA to favor the best matching sequences
-    visited = {(c, s) for c, items in taxonomy_map for s in items}
+
     available = {}
     for c in chain_ids:
-        available[c] = [
-            i for i in range(1, len(msa[c].sequences)) if (c, i) not in visited
-        ]
+        available[c] = deque(range(1, len(msa[c].sequences)))
+
+    if (
+        not random_subset
+        and type(max_seqs) is int
+        and max_seqs >= 1
+        and type(max_pairs) is int
+        and type(max_total) is int
+    ):
+        max_pairs = min(max_pairs, max_seqs)
+        max_total = min(max_total, max_seqs)
 
     # Create sequence pairs
     is_paired = []
@@ -252,8 +260,7 @@ def construct_paired_msa(  # noqa: C901, PLR0915, PLR0912
                     row_is_paired[chain_id] = 0
                     if available[chain_id]:
                         # Add the next available sequence
-                        seq_idx = available[chain_id].pop(0)
-                        row_pairing[chain_id] = seq_idx
+                        row_pairing[chain_id] = available[chain_id].popleft()
                     else:
                         # No more sequences available, we place a gap
                         row_pairing[chain_id] = -1
@@ -278,8 +285,7 @@ def construct_paired_msa(  # noqa: C901, PLR0915, PLR0912
             row_is_paired[chain_id] = 0
             if available[chain_id]:
                 # Add the next available sequence
-                seq_idx = available[chain_id].pop(0)
-                row_pairing[chain_id] = seq_idx
+                row_pairing[chain_id] = available[chain_id].popleft()
             else:
                 # No more sequences available, we place a gap
                 row_pairing[chain_id] = -1
@@ -307,18 +313,25 @@ def construct_paired_msa(  # noqa: C901, PLR0915, PLR0912
         is_paired = is_paired[:max_seqs]
 
     # Map (chain_id, seq_idx, res_idx) to deletion
-    deletions = {}
+    deletions = numba.typed.Dict.empty(
+        key_type=numba.types.Tuple(
+            [numba.types.int64, numba.types.int64, numba.types.int64]
+        ),
+        value_type=numba.types.int64,
+    )
     for chain_id, chain_msa in msa.items():
         chain_deletions = chain_msa.deletions
         for sequence in chain_msa.sequences:
+            if len(chain_deletions) == 0:
+                break
+            seq_idx = sequence["seq_idx"]
             del_start = sequence["del_start"]
             del_end = sequence["del_end"]
-            chain_deletions = chain_msa.deletions[del_start:del_end]
+            chain_deletions = chain_deletions[del_start:del_end]
             for deletion_data in chain_deletions:
-                seq_idx = sequence["seq_idx"]
                 res_idx = deletion_data["res_idx"]
-                deletion = deletion_data["deletion"]
-                deletions[(chain_id, seq_idx, res_idx)] = deletion
+                deletion_values = deletion_data["deletion"]
+                deletions[(chain_id, seq_idx, res_idx)] = deletion_values
 
     # Add all the token MSA data
     msa_data, del_data, paired_data = prepare_msa_arrays(
@@ -352,24 +365,28 @@ def prepare_msa_arrays(
         [chain_id_to_idx[asym_id] for asym_id in token_asym_ids_arr], dtype=np.int64
     )
 
-    pairing_arr = np.zeros((len(pairing), len(chain_ids)), dtype=np.int64)
-    is_paired_arr = np.zeros((len(is_paired), len(chain_ids)), dtype=np.int64)
-
-    for i, row_pairing in enumerate(pairing):
-        for chain_id in chain_ids:
-            pairing_arr[i, chain_id_to_idx[chain_id]] = row_pairing[chain_id]
-
-    for i, row_is_paired in enumerate(is_paired):
-        for chain_id in chain_ids:
-            is_paired_arr[i, chain_id_to_idx[chain_id]] = row_is_paired[chain_id]
+    # column j corresponds to chain_ids[j] (chain_id_to_idx[chain_ids[j]] == j).
+    pairing_arr = np.array(
+        [[row_pairing[chain_id] for chain_id in chain_ids] for row_pairing in pairing],
+        dtype=np.int64,
+    ).reshape(len(pairing), len(chain_ids))
+    is_paired_arr = np.array(
+        [
+            [row_is_paired[chain_id] for chain_id in chain_ids]
+            for row_is_paired in is_paired
+        ],
+        dtype=np.int64,
+    ).reshape(len(is_paired), len(chain_ids))
 
     max_seq_len = max(len(msa[chain_id].sequences) for chain_id in chain_ids)
 
     # we want res_start from sequences
     msa_sequences = np.full((len(chain_ids), max_seq_len), -1, dtype=np.int64)
     for chain_id in chain_ids:
-        for i, seq in enumerate(msa[chain_id].sequences):
-            msa_sequences[chain_id_to_idx[chain_id], i] = seq["res_start"]
+        chain_sequences = msa[chain_id].sequences
+        msa_sequences[chain_id_to_idx[chain_id], : len(chain_sequences)] = (
+            chain_sequences["res_start"]
+        )
 
     max_residues_len = max(len(msa[chain_id].residues) for chain_id in chain_ids)
     msa_residues = np.full((len(chain_ids), max_residues_len), -1, dtype=np.int64)
@@ -379,21 +396,13 @@ def prepare_msa_arrays(
         chain_idx = chain_id_to_idx[chain_id]
         msa_residues[chain_idx, idxs] = residues
 
-    deletions_dict = numba.typed.Dict.empty(
-        key_type=numba.types.Tuple(
-            [numba.types.int64, numba.types.int64, numba.types.int64]
-        ),
-        value_type=numba.types.int64,
-    )
-    deletions_dict.update(deletions)
-
     return _prepare_msa_arrays_inner(
         token_asym_ids_arr,
         token_res_idxs_arr,
         token_asym_ids_idx_arr,
         pairing_arr,
         is_paired_arr,
-        deletions_dict,
+        deletions,
         msa_sequences,
         msa_residues,
         const.token_ids["-"],
@@ -438,6 +447,7 @@ def _prepare_msa_arrays_inner(
 ) -> tuple[npt.NDArray[np.int64], npt.NDArray[np.int64], npt.NDArray[np.int64]]:
     n_tokens = len(token_asym_ids)
     n_pairs = len(pairing)
+    has_deletions = len(deletions) > 0
     msa_data = np.full((n_tokens, n_pairs), gap_token, dtype=np.int64)
     paired_data = np.zeros((n_tokens, n_pairs), dtype=np.int64)
     del_data = np.zeros((n_tokens, n_pairs), dtype=np.int64)
@@ -456,9 +466,10 @@ def _prepare_msa_arrays_inner(
             if seq_idx != -1:
                 res_start = msa_sequences[chain_id_idx, seq_idx]
                 res_type = msa_residues[chain_id_idx, res_start + res_idx]
-                k = (chain_id, seq_idx, res_idx)
-                if k in deletions:
-                    del_data[token_idx, pair_idx] = deletions[k]
+                if has_deletions:
+                    k = (chain_id, seq_idx, res_idx)
+                    if k in deletions:
+                        del_data[token_idx, pair_idx] = deletions[k]
                 msa_data[token_idx, pair_idx] = res_type
 
     return msa_data, del_data, paired_data
@@ -556,7 +567,7 @@ def process_token_features(
         assert inference_pocket is not None
         pocket_residues = set(inference_pocket)
         for idx, token in enumerate(token_data):
-            if token["asym_id"] in inference_binder:
+            if token["asym_id"] == inference_binder:
                 pocket_feature[idx] = const.pocket_contact_info["BINDER"]
             elif (token["asym_id"], token["res_idx"]) in pocket_residues:
                 pocket_feature[idx] = const.pocket_contact_info["POCKET"]
@@ -650,6 +661,7 @@ def process_token_features(
             resolved_mask = pad_dim(resolved_mask, 0, pad_len)
             disto_mask = pad_dim(disto_mask, 0, pad_len)
             pocket_feature = pad_dim(pocket_feature, 0, pad_len)
+            cyclic_period = pad_dim(cyclic_period, 0, pad_len)
 
     token_features = {
         "token_index": token_index,
@@ -933,7 +945,9 @@ def process_msa_features(
     # Prepare features
     msa = torch.nn.functional.one_hot(msa, num_classes=const.num_tokens)
     msa_mask = torch.ones_like(msa[:, :, 0])
-    profile = msa.float().mean(dim=0)
+    profile = msa.mean(
+        0, dtype=float
+    )  # slight difference in the result compared to the original line — msa.float().mean(dim=0) — but cheaper in terms of memory
     has_deletion = deletion > 0
     deletion = np.pi / 2 * np.arctan(deletion / 3)
     deletion_mean = deletion.mean(axis=0)
@@ -1106,13 +1120,13 @@ def process_chain_feature_constraints(
         connected_chain_index = torch.empty((2, 0), dtype=torch.long)
         connected_atom_index = torch.empty((2, 0), dtype=torch.long)
 
-    symmetric_chain_index = []
-    for i, chain_i in enumerate(structure.chains):
-        for j, chain_j in enumerate(structure.chains):
-            if j <= i:
-                continue
-            if chain_i["entity_id"] == chain_j["entity_id"]:
-                symmetric_chain_index.append([i, j])
+    # same pairs (i < j, equal entity_id) in the same row-major order as the
+    # original nested loops, without O(n^2) structured-row accesses.
+    entity_ids = structure.chains["entity_id"]
+    pair_i, pair_j = np.nonzero(
+        np.triu(entity_ids[:, None] == entity_ids[None, :], k=1)
+    )
+    symmetric_chain_index = np.stack([pair_i, pair_j], axis=1).tolist()
     if len(symmetric_chain_index) > 0:
         symmetric_chain_index = torch.tensor(symmetric_chain_index, dtype=torch.long).T
     else:
@@ -1213,7 +1227,7 @@ class BoltzFeaturizer:
         if compute_symmetries:
             symmetry_features = process_symmetry_features(data, symmetries)
 
-        # Compute residue constraint features
+        # Compute constraint features
         residue_constraint_features = {}
         chain_constraint_features = {}
         if compute_constraint_features:
