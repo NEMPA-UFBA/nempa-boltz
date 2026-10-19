@@ -104,6 +104,9 @@ class FlatBottomPotential(Potential):
         if upper_bounds is None:
             upper_bounds = torch.full_like(value, float('inf'))
 
+        lower_bounds = lower_bounds.expand_as(value).clone()
+        upper_bounds = upper_bounds.expand_as(value).clone()
+
         neg_overflow_mask = value < lower_bounds
         pos_overflow_mask = value > upper_bounds
 
