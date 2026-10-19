@@ -37,8 +37,8 @@ def pad_to_max(data: list[Tensor], value: float = 0) -> tuple[Tensor, Tensor]:
 
     Parameters
     ----------
-    data : List[Tensor]
-        List of tensors to pad.
+    data : list[Tensor]
+        list of tensors to pad.
     value : float
         The value to use for padding.
 
@@ -71,10 +71,21 @@ def pad_to_max(data: list[Tensor], value: float = 0) -> tuple[Tensor, Tensor]:
         pad_lengths.append(dims)
 
     # Pad the data
-    padding = [
-        pad(torch.ones_like(d), pad_len, value=0)
-        for d, pad_len in zip(data, pad_lengths)
-    ]
+    if all(len(d.shape) == num_dims for d in data):
+        # Equivalent to pad(torch.ones_like(d), pad_len, value=0): padding is only
+        # on the right of each dim, so the mask is ones over d's extent and zeros
+        # elsewhere (same dtype/device, final shape == max_dims). Building it
+        # directly avoids materializing ones_like(d) and copying it through pad.
+        padding = []
+        for d in data:
+            mask = torch.zeros(max_dims, dtype=d.dtype, device=d.device)
+            mask[tuple(slice(0, size) for size in d.shape)] = 1
+            padding.append(mask)
+    else:
+        padding = [
+            pad(torch.ones_like(d), pad_len, value=0)
+            for d, pad_len in zip(data, pad_lengths)
+        ]
     data = [pad(d, pad_len, value=value) for d, pad_len in zip(data, pad_lengths)]
 
     # Stack the data
