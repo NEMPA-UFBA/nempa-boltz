@@ -1,0 +1,36 @@
+name: Treino e Predict Boltz
+
+on:
+  push:
+    paths:
+      - 'scripts/train/configs/full.yaml' # Só dispara se houver alteração no YAML
+
+jobs:
+  rodar-modelo:
+    runs-on: self-hosted
+    
+    steps:
+      - name: Baixar o código mais recente
+        uses: actions/checkout@v4
+
+      - name: Ativar ambiente e rodar treino
+        run: |
+          source /home/gpu/nempa-boltz/.venv/bin/activate
+          export RUN_NAME="Treino_Auto_$(date +%Y%m%d_%H%M)"
+          # Executa o treino usando o full.yaml recém-atualizado pelo GitHub
+          python scripts/train/train.py scripts/train/configs/full.yaml
+
+      - name: Rodar Predict Imediato
+        run: |
+          source /home/gpu/nempa-boltz/.venv/bin/activate
+          
+          # Localiza a pasta do último treino gerado
+          CKPT_DIR=$(ls -td /home/gpu/nempa-boltz/mhc_finetune*/nempa-boltz/*/ | head -1)
+          RUN_ID=$(basename $CKPT_DIR)
+          
+          echo "Iniciando predição para a Run ID: $RUN_ID"
+          
+          boltz predict /home/gpu/test_yamls \
+            --checkpoint ${CKPT_DIR}checkpoints/last.ckpt \
+            --out_dir /home/gpu/nempa-boltz/predictions_${RUN_ID} \
+            --use_msa_server --accelerator gpu --devices 1
