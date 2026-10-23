@@ -100,11 +100,15 @@ class Boltz1(LightningModule):
             self.plddt_mae = nn.ModuleDict()
             self.pde_mae = nn.ModuleDict()
             self.pae_mae = nn.ModuleDict()
+        # General metrics, including pocket-specific metrics
         for m in const.out_types + ["pocket_ligand_protein"]:
             self.lddt[m] = MeanMetric()
             self.disto_lddt[m] = MeanMetric()
             self.complex_lddt[m] = MeanMetric()
-            if confidence_prediction:
+
+        # Confidence metrics are only defined for regular output types
+        if confidence_prediction:
+            for m in const.out_types:
                 self.top1_lddt[m] = MeanMetric()
                 self.iplddt_top1_lddt[m] = MeanMetric()
                 self.ipde_top1_lddt[m] = MeanMetric()
@@ -116,8 +120,8 @@ class Boltz1(LightningModule):
                 self.avg_lddt[m] = MeanMetric()
                 self.pde_mae[m] = MeanMetric()
                 self.pae_mae[m] = MeanMetric()
-        for m in const.out_single_types:
-            if confidence_prediction:
+
+            for m in const.out_single_types:
                 self.plddt_mae[m] = MeanMetric()
         self.rmsd = MeanMetric()
         self.best_rmsd = MeanMetric()
@@ -326,7 +330,9 @@ class Boltz1(LightningModule):
 
                     # Revert to uncompiled version for validation
                     if self.is_pairformer_compiled and not self.training:
-                        pairformer_module = self.pairformer_module._orig_mod  # noqa: SLF001
+                        pairformer_module = (
+                            self.pairformer_module._orig_mod
+                        )  # noqa: SLF001
                     else:
                         pairformer_module = self.pairformer_module
 
@@ -533,16 +539,17 @@ class Boltz1(LightningModule):
         lr = self.trainer.optimizers[0].param_groups[0]["lr"]
         self.log("lr", lr, prog_bar=False)
 
-        self.log(
-            "train/grad_norm_msa_module",
-            self.gradient_norm(self.msa_module),
-            prog_bar=False,
-        )
-        self.log(
-            "train/param_norm_msa_module",
-            self.parameter_norm(self.msa_module),
-            prog_bar=False,
-        )
+        if not self.no_msa:  # solve no_msa=True -> AttributeError
+            self.log(
+                "train/grad_norm_msa_module",
+                self.gradient_norm(self.msa_module),
+                prog_bar=False,
+            )
+            self.log(
+                "train/param_norm_msa_module",
+                self.parameter_norm(self.msa_module),
+                prog_bar=False,
+            )
 
         self.log(
             "train/grad_norm_pairformer_module",
@@ -579,6 +586,9 @@ class Boltz1(LightningModule):
             )
 
     def on_train_epoch_end(self):
+        if not self.confidence_prediction:
+            return
+
         self.log(
             "train/confidence_loss",
             self.train_confidence_loss_logger,
@@ -586,20 +596,48 @@ class Boltz1(LightningModule):
             on_step=False,
             on_epoch=True,
         )
-        for k, v in self.train_confidence_loss_dict_logger.items():
-            self.log(f"train/{k}", v, prog_bar=False, on_step=False, on_epoch=True)
 
-    def gradient_norm(self, module) -> float:
+        for k, v in self.train_confidence_loss_dict_logger.items():
+            self.log(
+                f"train/{k}",
+                v,
+                prog_bar=False,
+                on_step=False,
+                on_epoch=True,
+            )
+
+    def gradient_norm(self, module) -> torch.Tensor:
         # Only compute over parameters that are being trained
-        parameters = filter(lambda p: p.requires_grad, module.parameters())
-        parameters = filter(lambda p: p.grad is not None, parameters)
-        norm = torch.tensor([p.grad.norm(p=2) ** 2 for p in parameters]).sum().sqrt()
+        parameters = [
+            p.grad.detach().norm(p=2).square()
+            for p in module.parameters()
+            if p.requires_grad and p.grad is not None
+        ]
+
+        if not parameters:
+            reference = next(module.parameters(), None)
+            if reference is None:
+                return torch.tensor(0.0)
+            return reference.new_zeros(())
+
+        norm = torch.stack(parameters).sum().sqrt()
         return norm
 
-    def parameter_norm(self, module) -> float:
+    def parameter_norm(self, module) -> torch.Tensor:
         # Only compute over parameters that are being trained
-        parameters = filter(lambda p: p.requires_grad, module.parameters())
-        norm = torch.tensor([p.norm(p=2) ** 2 for p in parameters]).sum().sqrt()
+        parameters = [
+            p.detach().norm(p=2).square()
+            for p in module.parameters()
+            if p.requires_grad
+        ]
+
+        if not parameters:
+            reference = next(module.parameters(), None)
+            if reference is None:
+                return torch.tensor(0.0)
+            return reference.new_zeros(())
+
+        norm = torch.stack(parameters).sum().sqrt()
         return norm
 
     def validation_step(self, batch: dict[str, Tensor], batch_idx: int):
@@ -830,37 +868,82 @@ class Boltz1(LightningModule):
                 )
 
         for m in const.out_types:
-            if m == "ligand_protein":
-                if torch.any(
-                    batch["pocket_feature"][
-                        :, :, const.pocket_contact_info["POCKET"]
-                    ].bool()
-                ):
-                    self.lddt["pocket_ligand_protein"].update(
-                        best_lddt_dict[m], best_total_dict[m]
-                    )
-                    self.disto_lddt["pocket_ligand_protein"].update(
-                        disto_lddt_dict[m], disto_total_dict[m]
-                    )
-                    self.complex_lddt["pocket_ligand_protein"].update(
-                        best_complex_lddt_dict[m], best_complex_total_dict[m]
-                    )
-                else:
-                    self.lddt["ligand_protein"].update(
-                        best_lddt_dict[m], best_total_dict[m]
-                    )
-                    self.disto_lddt["ligand_protein"].update(
-                        disto_lddt_dict[m], disto_total_dict[m]
-                    )
-                    self.complex_lddt["ligand_protein"].update(
-                        best_complex_lddt_dict[m], best_complex_total_dict[m]
-                    )
-            else:
+            if m != "ligand_protein":
                 self.lddt[m].update(best_lddt_dict[m], best_total_dict[m])
                 self.disto_lddt[m].update(disto_lddt_dict[m], disto_total_dict[m])
                 self.complex_lddt[m].update(
-                    best_complex_lddt_dict[m], best_complex_total_dict[m]
+                    best_complex_lddt_dict[m],
+                    best_complex_total_dict[m],
                 )
+                continue
+
+            # Classify each example separately.
+            pocket_mask = (
+                batch["pocket_feature"][:, :, const.pocket_contact_info["POCKET"]]
+                .bool()
+                .any(dim=1)
+            )
+
+            non_pocket_mask = ~pocket_mask
+
+            # Pocket-specific metrics: only examples containing a pocket.
+            if pocket_mask.any():
+                self.lddt["pocket_ligand_protein"].update(
+                    best_lddt_dict[m][pocket_mask],
+                    best_total_dict[m][pocket_mask],
+                )
+                self.disto_lddt["pocket_ligand_protein"].update(
+                    disto_lddt_dict[m][pocket_mask],
+                    disto_total_dict[m][pocket_mask],
+                )
+                self.complex_lddt["pocket_ligand_protein"].update(
+                    best_complex_lddt_dict[m][pocket_mask],
+                    best_complex_total_dict[m][pocket_mask],
+                )
+            else:
+                # Mark the metric as updated without adding observations.
+                self.lddt["pocket_ligand_protein"].update(
+                    torch.zeros_like(best_lddt_dict[m]),
+                    torch.zeros_like(best_total_dict[m]),
+                )
+                self.disto_lddt["pocket_ligand_protein"].update(
+                    torch.zeros_like(disto_lddt_dict[m]),
+                    torch.zeros_like(disto_total_dict[m]),
+                )
+                self.complex_lddt["pocket_ligand_protein"].update(
+                    torch.zeros_like(best_complex_lddt_dict[m]),
+                    torch.zeros_like(best_complex_total_dict[m]),
+                )
+
+            # General ligand-protein metrics: examples without a pocket.
+            if non_pocket_mask.any():
+                self.lddt["ligand_protein"].update(
+                    best_lddt_dict[m][non_pocket_mask],
+                    best_total_dict[m][non_pocket_mask],
+                )
+                self.disto_lddt["ligand_protein"].update(
+                    disto_lddt_dict[m][non_pocket_mask],
+                    disto_total_dict[m][non_pocket_mask],
+                )
+                self.complex_lddt["ligand_protein"].update(
+                    best_complex_lddt_dict[m][non_pocket_mask],
+                    best_complex_total_dict[m][non_pocket_mask],
+                )
+            else:
+                # Mark the metric as updated without adding observations.
+                self.lddt["ligand_protein"].update(
+                    torch.zeros_like(best_lddt_dict[m]),
+                    torch.zeros_like(best_total_dict[m]),
+                )
+                self.disto_lddt["ligand_protein"].update(
+                    torch.zeros_like(disto_lddt_dict[m]),
+                    torch.zeros_like(disto_total_dict[m]),
+                )
+                self.complex_lddt["ligand_protein"].update(
+                    torch.zeros_like(best_complex_lddt_dict[m]),
+                    torch.zeros_like(best_complex_total_dict[m]),
+                )
+
         self.rmsd.update(rmsds)
         self.best_rmsd.update(best_rmsds)
 
@@ -908,7 +991,11 @@ class Boltz1(LightningModule):
                 prog_bar=False,
                 sync_dist=True,
             )
-            if self.confidence_prediction:
+            if (
+                self.confidence_prediction
+                and self.validation_args.diffusion_samples > 1
+                and m in const.out_types
+            ):
                 avg_top1_lddt[m] = self.top1_lddt[m].compute()
                 avg_top1_lddt[m] = (
                     0.0 if torch.isnan(avg_top1_lddt[m]) else avg_top1_lddt[m].item()
@@ -1040,7 +1127,10 @@ class Boltz1(LightningModule):
                 )
 
         for m in const.out_single_types:
-            if self.confidence_prediction:
+            if (
+                self.confidence_prediction
+                and self.validation_args.diffusion_samples > 1
+            ):
                 avg_mae_plddt[m] = self.plddt_mae[m].compute().item()
                 self.plddt_mae[m].reset()
                 self.log(
@@ -1067,7 +1157,7 @@ class Boltz1(LightningModule):
             "val/complex_lddt", overall_complex_lddt, prog_bar=True, sync_dist=True
         )
 
-        if self.confidence_prediction:
+        if self.confidence_prediction and self.validation_args.diffusion_samples > 1:
             overall_top1_lddt = sum(
                 avg_top1_lddt[m] * w for (m, w) in const.out_types_weights.items()
             ) / sum(const.out_types_weights.values())
