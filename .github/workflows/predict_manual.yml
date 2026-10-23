@@ -1,0 +1,50 @@
+name: Predict Manual (Por ID da Run)
+
+# O gatilho workflow_dispatch cria um botão "Run" no site do GitHub
+on:
+  workflow_dispatch:
+    inputs:
+      run_id:
+        description: 'Digite o ID da Run (ex: kz8g6i5j) ou digite "baseline" para o modelo original'
+        required: true
+        type: string
+
+jobs:
+  rodar-predict:
+    runs-on: self-hosted
+    
+    steps:
+      - name: Baixar o código mais recente
+        uses: actions/checkout@v4
+
+      - name: Localizar Checkpoint e Executar Predict
+        run: |
+          source /home/gpu/nempa-boltz/.venv/bin/activate
+          INPUT_DIR="/home/gpu/test_yamls"
+          RUN_ID="${{ github.event.inputs.run_id }}"
+          
+          # Se o usuário digitou "baseline", usa o modelo base original
+          if [ "$RUN_ID" == "baseline" ]; then
+            CKPT="/home/gpu/nempa-boltz/boltz_checkpoints/boltz1.ckpt"
+            OUT_DIR="/home/gpu/nempa-boltz/predictions_baseline"
+          else
+            # Procura automaticamente o arquivo last.ckpt nas pastas clean ou lora
+            CKPT=$(find /home/gpu/nempa-boltz/mhc_finetune*/nempa-boltz/$RUN_ID -name "last.ckpt" 2>/dev/null | head -1)
+            OUT_DIR="/home/gpu/nempa-boltz/predictions_$RUN_ID"
+          fi
+          
+          # Trava de segurança caso o ID digitado não exista
+          if [ -z "$CKPT" ]; then
+            echo "Erro crítico: Checkpoint para a run '$RUN_ID' não foi encontrado no servidor."
+            exit 1
+          fi
+          
+          echo "Checkpoint localizado: $CKPT"
+          echo "Iniciando Boltz Predict..."
+          
+          boltz predict $INPUT_DIR \
+            --checkpoint $CKPT \
+            --out_dir $OUT_DIR \
+            --use_msa_server \
+            --accelerator gpu \
+            --devices 1
