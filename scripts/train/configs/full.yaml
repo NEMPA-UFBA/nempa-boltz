@@ -2,7 +2,7 @@ trainer:
   accelerator: gpu
   devices: 1
   precision: 32 # bf16-mixed - Roberto: Alterei em 2026-03-19 para 32, pois a precisão mista estava causando underflow e gerando o erro linalg.svd (matrizes colapsadas).
-  gradient_clip_val: 1.0 # 10.0 - Roberto: Alterei em 2026-03-19 para 1.0, para segurar saltos muito fortes no início do fine-tuning.
+  gradient_clip_val: 0.5 # 1.0 - Equipe: Alteramos em 2026-10-22 para testes loucos de lr # 10.0 - Roberto: Alterei em 2026-03-19 para 1.0, para segurar saltos muito fortes no início do fine-tuning.
   max_epochs: 20 # -1 - Roberto: Alterei em 2026-09-23 para 20, para limitar o fine-tuning a 20 �pocas, evitando que o modelo se sobreajuste aos dados de treino.
   accumulate_grad_batches: 16 # 128 - Roberto: Alterei em 2026-03-19 para 16, para garantir que o modelo atualize os pesos e plote no WandB antes que a época de 100 samples termine.
   log_every_n_steps: 1 # (Padrão era 50) - Roberto: Adicionei em 2026-03-19 para forçar o PyTorch Lightning a enviar dados para o WandB a cada passo, gerando telemetria em tempo real.
@@ -182,12 +182,12 @@ model:
     adam_beta_2: 0.95
     adam_eps: 0.00000001
     lr_scheduler: af3
-    base_lr: 0.00008 # 0.0 - Equipe: Alteramos em 2026-10-18 para testes loucos de lr
-    max_lr: 0.00008 # 0.0001 - Equipe: Alteramos em 2026-10-18 para testes loucos de lr
+    base_lr: 0.0001 # 0.00008 - Equipe: Alteramos em 2026-10-22 para testes loucos de lr # 0.0 - Equipe: Alteramos em 2026-10-18 para testes loucos de lr
+    max_lr: 0.0001 # 0.00008 - Equipe: Alteramos em 2026-10-22 para testes loucos de lr # 0.0001 - Equipe: Alteramos em 2026-10-18 para testes loucos de lr
     # 0.0018 - Roberto: Alterei em 2026-03-19 para 0.0001, forçando o modelo a dar passos mais lentos no fine-tuning para não desestabilizar os pesos pré-treinados e evitar erros SVD.
     lr_warmup_no_steps: 0 # 1000 - Equipe: Alteramos em 2026-10-18 para testes loucos de lr
     lr_start_decay_after_n_steps: 45 # 50000 - Equipe: Alteramos em 2026-10-18 para testes loucos de lr
-    lr_decay_every_n_steps: 15 # 50000 - Equipe: Alteramos em 2026-10-18 para testes loucos de lr
+    lr_decay_every_n_steps: 30 # 15 - Equipe: Alteramos em 2026-10-22 para testes loucos de lr # 50000 - Equipe: Alteramos em 2026-10-18 para testes loucos de lr
     lr_decay_factor: 0.90 # 0.95 - Equipe: Alteramos em 2026-10-18 para testes loucos de lr
     symmetry_correction: true
     run_confidence_sequentially: false
