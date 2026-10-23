@@ -1,0 +1,28 @@
+categoria	artefato_local	estado	GitHub	Google Drive / backup	acao
+codigo	scripts/predict/prepare_boltz_fastas.py	seleciona cadeias por CIF; gerou 220 FASTAs validos; 20 IDs falharam	incluir apos revisao	guardar copia junto ao registro da run	manter como fonte reproduzivel
+codigo	scripts/predict/download_rcsb_fastas_legacy.py	downloader FASTA RCSB; endpoint falha para 8JHV	incluir somente se ainda usado	nao necessario	documentar como download bruto/legado; nao usar como entrada Boltz
+codigo	scripts/process/filter_manifest_to_existing_structures.py	gera manifest lateral sem sobrescrever origem	incluir apos revisao	copia opcional	usar somente para preparar novas runs
+codigo	scripts/train/configs/full.yaml; full_lora.yaml; train.py	alteracoes locais pendentes; nao revisadas para publicacao	incluir diff revisado	arquivar configs usadas	nao fazer git add .
+codigo	src/boltz/model/modules/trunk.py	alteracao local pendente	revisar se relacionada	nao	nao descartar nem incluir sem revisar
+organizacao	origin/patrick	branch local; move scripts para scripts/; inclui auditorias	usar como referencia seletiva	nao	nao fazer merge integral: remove docs CMCAD/tmux e LoRA
+organizacao	docs/relatorio_auditoria_dataset_mhc.md (origin/patrick)	relatorio historico usa teste >= 2023-01-01; seus arquivos pertencem a outro estado	usar como historico, nao copiar listas cegamente	guardar somente como historico	em 2026-10-05 foi escolhida a regra PI >= 2023-01-01: 1082/128/242; proxima run deve excluir 8gqv/8gqw do manifesto de treino
+git	.gitignore	protecao local para checkpoints, dados, backups e predicts adicionada e verificada	manter no diff para revisao	nao	sem staging/commit ate revisao
+checkpoint	boltz_checkpoints/boltz1.ckpt	modelo base; 6.45 GiB	nao	opcional; recuperavel da distribuicao oficial	preservar referencia/versao
+checkpoint	mhc_finetune_clean/nempa-boltz/kz8g6i5j/checkpoints/last.ckpt	checkpoint final epoca 19; 6.45 GiB	nao	PRIORIDADE ALTA	copiar e verificar SHA-256
+checkpoint	mhc_finetune_clean/nempa-boltz/kz8g6i5j/checkpoints/*.ckpt	4 checkpoints; diretorio total ~26 GiB	nao	opcional; salvar todos se espaco permitir	last.ckpt e epoch=16 sao candidatos prioritarios
+wandb	mhc_finetune_clean/wandb/run-20260929_202058-kz8g6i5j	config, summary, logs e arquivo da run	nao	PRIORIDADE ALTA	guardar config.yaml, run.yaml, summary, output.log, ID kz8g6i5j
+predict	predictions_base	220 CIFs; ~1.9 GiB	nao	PRIORIDADE ALTA	manter separado do treinado; validar quantidade/hash
+predict	predictions_treinado	220 CIFs; ~1.9 GiB	nao	PRIORIDADE ALTA	manter separado do base; validar quantidade/hash
+inputs	/home/gpu/test_yamls_boltz	220 FASTAs aceitos; report tem 240 IDs e 20 falhas	nao	guardar junto aos resultados	188 csv_exact; 32 interface_fallback; revisar 20 erros
+inputs	/home/gpu/test_yamls_boltz/selection_report.tsv	240 linhas; status final 220 ok/20 error	incluir apos revisar caminhos pessoais	PRIORIDADE ALTA	preservar proveniencia de selecao
+estruturas	/home/gpu/test_yamls_cif	CIFs de referencia; ~0.274 GiB	nao	opcional; redownload possivel	guardar apenas as natives usadas em DockQ se espaco limitado
+manifesto	mhc_data/dataset_limpo/manifest.physical.json	manifest lateral validado; 2.7 MiB	avaliar inclusao em data_manifests	PRIORIDADE ALTA	nao foi usado retroativamente pela run kz8g6i5j
+manifesto	mhc_data/dataset_limpo/manifest.train_val_before_test_2023-01-01.json	manifesto temporal criado em 2026-10-05; 1177 registros; exclui 8gqv/8gqw	nao	Drive junto aos manifestos	full.yaml agora aponta para ele; config validada sem iniciar run; SHA-256 ddc73afd893c544e31652b0897a4e28bbe1c463e09278b7b5e1e03f42ffa5d98
+dados de treino	mhc_data/dataset_limpo/	1179 estruturas NPZ + manifest; 234 MiB	nao	Drive; junto com manifest.physical.json	preservar manifest.json original e sidecar fisico
+dados de treino	rcsb_processed_msa (subset)	1513 MSAs referenciadas; 0.49 GiB	nao	Drive; copiar somente os arquivos referenciados	nao copiar o banco RCSB completo (~101 GiB)
+backup	mhc_data/test_leakage_backup	NPZ de backup; ~17 MiB	nao	Drive/arquivo bruto	nao reintegrar ao dataset sem decisao documentada
+avaliacao	DockQ CSVs e relatorio comparativo	no momento reportados como locais no Mac	incluir scripts; nao inserir CSVs sem conferir IDs	PRIORIDADE ALTA	copiar os dois CSVs e sintese para local persistente
+symlinks	rcsb_processed_* e openfold_processed_*	links para bancos processados externos	nao	nao copiar bancos inteiros	.gitignore agora protege os links
+predicao	/home/gpu/test_yamls	FASTAs brutos do RCSB; 239/240	nao	nao usar como entrada Boltz	8JHV nao tem endpoint FASTA; CIF existe
+reproducibilidade	.venv, logs temporarios, MSA server scratch	ambiente e temporarios regeneraveis	nao	nao	registrar versoes em vez de copiar ambientes
+backup	Google Drive no CMCAD	nao foi encontrado volume montado em /mnt, /media ou home	nao	NAO COPIADO	montar o Drive ou indicar destino antes de copiar; nenhuma transferencia foi iniciada

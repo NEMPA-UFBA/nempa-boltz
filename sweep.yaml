@@ -1,0 +1,26 @@
+command:
+- ${env}
+- python
+- ${program}
+- scripts/train/configs/full.yaml
+- ${args_no_hyphens}
+method: bayes
+metric:
+  goal: minimize
+  name: train/loss
+parameters:
+  epochs:
+    value: 20
+  model.training_args.base_lr:
+    value: 0.0008
+  model.training_args.lr_decay_every_n_steps:
+    value: 7
+  model.training_args.lr_decay_factor:
+    value: 0.9
+  model.training_args.lr_start_decay_after_n_steps:
+    value: 0
+  model.training_args.lr_warmup_no_steps:
+    value: 0
+  model.training_args.max_lr:
+    value: 0.0008
+program: scripts/train/train.py

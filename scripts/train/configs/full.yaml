@@ -16,18 +16,18 @@ wandb:
   entity: nempa-ufba-lab
 
 
-output: /home/gpu/nempa-boltz/mhc_finetune # /mhc_finetune - Roberto: Alterei em 2026-03-19 para o caminho absoluto para evitar problemas de permissão e salvar no local correto.
+output: /home/gpu/nempa-boltz/mhc_finetune_clean # /mhc_finetune - Roberto: Alterei em 2026-03-19 para o caminho absoluto para evitar problemas de permissão e salvar no local correto.
 pretrained: boltz_checkpoints/boltz1.ckpt
-resume: /home/gpu/nempa-boltz/mhc_finetune/nempa-boltz/k0cr7qy9/checkpoints/last.ckpt # null # last - Roberto: Alterei em 2026-03-19 para null, garantindo que o treino comece limpo do boltz1.ckpt e não herde checkpoints corrompidos das tentativas falhas anteriores.
+resume: null # last - Roberto: Alterei em 2026-03-19 para null, garantindo que o treino comece limpo do boltz1.ckpt e não herde checkpoints corrompidos das tentativas falhas anteriores.
 # Roberto: Mantido em null em 2026-04-15 para garantir que o fine-tuning comece do checkpoint odficial sobre os dados higienizados.
 disable_checkpoint: false
-matmul_precision: null
+matmul_precision: high # null - Roberto: Alterei em 2026-09-29 para high, para forçar o PyTorch a usar precisão alta nas multiplicações de matrizes, evitando underflow e erros SVD.
 save_top_k: 3 # -1 - Roberto: Alterei em 2026-03-19 para 3, pois isso pode ser mais adequado para o estágio inicial de configuração. Talvez seja necessário ajustar dependendo do caso.
 
 data:
   datasets:
     - _target_: boltz.data.module.training.DatasetConfig
-      target_dir: rcsb_processed_targets # mhc_data/dataset_limpo # rcsb_processed_targets - Roberto: Alterei em 2026-04-15 para apontar para o dataset limpo de treino.
+      target_dir: mhc_data/dataset_limpo # rcsb_processed_targets - Roberto: Alterei em 2026-04-15 para apontar para o dataset limpo de treino.
       msa_dir: rcsb_processed_msa
       prob: 1.0
       sampler:
@@ -36,8 +36,11 @@ data:
         _target_: boltz.data.crop.boltz.BoltzCropper
         min_neighborhood: 0
         max_neighborhood: 40
-      split: ./scripts/train/assets/validation_ids.txt # ./mhc_data/mhc_train.txt - Roberto: Alterei em 2026-04-15 para usar o mesmo split de validação, garantindo que as proteínas usadas para validação sejam estritamente isoladas do treino, evitando vazamento de dados (Data Leakage).
-      # Roberto: Alterei em 2026-04-15 para usar a lista de 1132 proteínas limpas para o fine-tuning real.
+      split: ./scripts/train/assets/validation_ids.txt # define o conjunto de validação (128 IDs); tudo que NÃO está aqui vira treino por padrão.
+      manifest_path: ./mhc_data/dataset_limpo/manifest.train_val_before_test_2023-01-01.json
+      # filters:
+      #   - _target_: boltz.data.filter.dynamic.subset.SubsetFilter # 2026-09-29: restringe o TREINO às 1132 proteínas curadas de mhc_train.txt, evitando treinar sobre o RCSB inteiro (o que incluiria acidentalmente as 239 proteínas de teste).
+      #     subset: ./mhc_data/mhc_train.txt
 
   # val_datasets:
   #   - _target_: boltz.data.module.training.DatasetConfig
@@ -74,7 +77,7 @@ data:
   pad_to_max_tokens: true
   pad_to_max_atoms: true
   pad_to_max_seqs: true
-  samples_per_epoch: 100 # 100000 - Roberto: Alterei em 2026-03-19 para 100, seguindo a instrução do Ernest no e-mail, permitindo épocas curtas e feedback constante no WandB.
+  samples_per_epoch: 240 # 100 - Equipe: Alteramos em 2026-10-19 para testes loucos de lr # 100000 - Roberto: Alterei em 2026-03-19 para 100, seguindo a instrução do Ernest no e-mail, permitindo épocas curtas e feedback constante no WandB.
   batch_size: 1
   num_workers: 4
   random_seed: 42
@@ -106,7 +109,7 @@ model:
   nucleotide_rmsd_weight: 5.0
   ligand_rmsd_weight: 10.0
   ema: true
-  ema_decay: 0.999
+  ema_decay: 0.99 # 0.999 - Equipe: Alteramos em 2026-10-19 para testes loucos de lr
 
   steering_args:
     fk_steering: false
@@ -151,7 +154,7 @@ model:
     offload_to_cpu: false
 
   structure_prediction_training: true
-  confidence_prediction: true
+  confidence_prediction: false
   alpha_pae: 1
   confidence_imitate_trunk: true
   confidence_model_args:
@@ -179,12 +182,13 @@ model:
     adam_beta_2: 0.95
     adam_eps: 0.00000001
     lr_scheduler: af3
-    base_lr: 0.0
-    max_lr: 0.0001 # 0.0018 - Roberto: Alterei em 2026-03-19 para 0.0001, forçando o modelo a dar passos mais lentos no fine-tuning para não desestabilizar os pesos pré-treinados e evitar erros SVD.
-    lr_warmup_no_steps: 1000
-    lr_start_decay_after_n_steps: 50000
-    lr_decay_every_n_steps: 50000
-    lr_decay_factor: 0.95
+    base_lr: 0.00008 # 0.0 - Equipe: Alteramos em 2026-10-18 para testes loucos de lr
+    max_lr: 0.00008 # 0.0001 - Equipe: Alteramos em 2026-10-18 para testes loucos de lr
+    # 0.0018 - Roberto: Alterei em 2026-03-19 para 0.0001, forçando o modelo a dar passos mais lentos no fine-tuning para não desestabilizar os pesos pré-treinados e evitar erros SVD.
+    lr_warmup_no_steps: 0 # 1000 - Equipe: Alteramos em 2026-10-18 para testes loucos de lr
+    lr_start_decay_after_n_steps: 45 # 50000 - Equipe: Alteramos em 2026-10-18 para testes loucos de lr
+    lr_decay_every_n_steps: 15 # 50000 - Equipe: Alteramos em 2026-10-18 para testes loucos de lr
+    lr_decay_factor: 0.90 # 0.95 - Equipe: Alteramos em 2026-10-18 para testes loucos de lr
     symmetry_correction: true
     run_confidence_sequentially: false
 

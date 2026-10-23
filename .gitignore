@@ -166,18 +166,27 @@ cython_debug/
 boltz_results_*/
 
 # NEMPA
-rcsb_processed_targets/
-rcsb_processed_msa/
+rcsb_processed_targets
+rcsb_processed_msa
+openfold_processed_targets
+openfold_processed_msa
 MHC_Dados/
 mhc_finetune/
+mhc_finetune_clean/
+mhc_finetune_lora/
 symmetry.pkl
 mhc_data/dataset_limpo
+mhc_data/test_leakage_backup/
 relatorio*
 cif_files/
 get_subsamples/mhc_samples/msa
 get_subsamples/mhc_samples/
 temp_toy
 boltz_checkpoints/
+/predictions_base/
+/predictions_treinado/
+/predictions_smoke_base/
+/predictions_smoke_treinado/
 mhc_finetune_2
 *.fasta
 get_subsamples/dados_teste_temporal/yaml/

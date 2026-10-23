@@ -91,7 +91,7 @@ class AlphaFoldLRScheduler(torch.optim.lr_scheduler._LRScheduler):
 
         step_no = self.last_epoch
 
-        if self.warmup_no_steps > 0 and step_no <= self.warmup_no_steps:
+        if self.warmup_no_steps > 0 and self.warmup_no_steps > 0 and step_no <= self.warmup_no_steps: # Inclusão do self.warmup_no_steps > 0 - Equipe: Alteramos em 2026-10-19 para testes loucos de lr
             lr = self.base_lr + (step_no / self.warmup_no_steps) * self.max_lr
         elif step_no > self.start_decay_after_n_steps:
             steps_since_decay = step_no - self.start_decay_after_n_steps

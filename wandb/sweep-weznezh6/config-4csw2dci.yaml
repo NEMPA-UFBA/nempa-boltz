@@ -1,0 +1,18 @@
+wandb_version: 1
+
+epochs:
+  value: 20
+model.learning_rate.base_lr:
+  value: 0.0008
+model.learning_rate.lr_decay_every_n_steps:
+  value: 7
+model.learning_rate.lr_decay_factor:
+  value: 0.9
+model.learning_rate.lr_scheduler:
+  value: af3
+model.learning_rate.lr_start_decay_after_n_steps:
+  value: 0
+model.learning_rate.lr_warmup_no_steps:
+  value: 0
+model.learning_rate.max_lr:
+  value: 1.0040518080598996e-05
