@@ -1,0 +1,44 @@
+name: Atualizar Catálogo de Runs
+
+on:
+  workflow_dispatch: # Cria botão no GitHub
+
+jobs:
+  gerar-catalogo:
+    runs-on: self-hosted
+    
+    steps:
+      - name: Baixar o código mais recente
+        uses: actions/checkout@v4
+
+      - name: Mapear CMCAD e Gerar Tabela (Markdown)
+        run: |
+          # Cria o cabeçalho do arquivo
+          echo "# 📚 Catálogo de Runs - Boltz-1" > RUNS_DISPONIVEIS.md
+          echo "_Última atualização do servidor CMCAD: $(date '+%d/%m/%Y às %H:%M')_" >> RUNS_DISPONIVEIS.md
+          echo "" >> RUNS_DISPONIVEIS.md
+          echo "| ID da Run | Data do Checkpoint | Diretório de Origem |" >> RUNS_DISPONIVEIS.md
+          echo "| :--- | :--- | :--- |" >> RUNS_DISPONIVEIS.md
+          
+          # Vasculha as pastas clean e lora
+          for d in /home/gpu/nempa-boltz/mhc_finetune_clean/nempa-boltz /home/gpu/nempa-boltz/mhc_finetune_lora/nempa-boltz; do
+            if [ -d "$d" ]; then
+              find "$d" -type f -name last.ckpt -printf '%TY-%Tm-%Td %TH:%TM\t%p\n' 2>/dev/null | sort -r | while IFS=$'\t' read -r data caminho; do
+                run_id=$(basename $(dirname $(dirname "$caminho")))
+                pasta_origem=$(basename $(dirname $(dirname $(dirname "$caminho"))))
+                # Adiciona a linha na tabela
+                echo "| **$run_id** | $data | $pasta_origem |" >> RUNS_DISPONIVEIS.md
+              done
+            fi
+          done
+
+      - name: Publicar Catálogo no GitHub
+        run: |
+          # Configura o robô como um "usuário" do Git para poder fazer o commit
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          
+          git add RUNS_DISPONIVEIS.md
+          
+          # Só faz o commit se houver alguma diferença/run nova. Se estiver igual, ele não polui o histórico.
+          git diff --quiet && git diff --staged --quiet || (git commit -m "docs: atualiza catálogo de runs do cmcad" && git push)

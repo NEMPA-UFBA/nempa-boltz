@@ -1,11 +1,7 @@
 name: Treino e Predict Boltz
 
 on:
-  push:
-    branches:
-      - boltz-v1   # A automação SÓ roda se o push for nesta branch
-    paths:
-      - 'scripts/train/configs/full.yaml' # Só dispara se houver alteração no YAML
+  workflow_dispatch:
 
 jobs:
   rodar-modelo:
