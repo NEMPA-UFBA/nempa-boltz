@@ -10,6 +10,8 @@ jobs:
     steps:
       - name: Baixar o código mais recente
         uses: actions/checkout@v4
+        with:
+          ref: develop  # Garante que o catálogo seja gerado a partir do código da branch develop
 
       - name: Mapear CMCAD e Gerar Tabela (Markdown)
         run: |
