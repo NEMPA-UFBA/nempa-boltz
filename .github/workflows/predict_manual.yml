@@ -20,7 +20,7 @@ jobs:
       - name: Localizar Checkpoint e Executar Predict
         run: |
           source /home/gpu/nempa-boltz/.venv/bin/activate
-          INPUT_DIR="/home/gpu/test_yamls"
+          INPUT_DIR="/home/gpu/test_yamls_boltz"
           RUN_ID="${{ github.event.inputs.run_id }}"
           
           # Se o usuário digitou "baseline", usa o modelo base original
