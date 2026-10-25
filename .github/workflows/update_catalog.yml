@@ -3,6 +3,9 @@ name: Atualizar Catálogo de Runs
 on:
   workflow_dispatch: # Cria botão no GitHub
 
+permissions:
+  contents: write
+
 jobs:
   gerar-catalogo:
     runs-on: self-hosted
