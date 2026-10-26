@@ -1,5 +1,5 @@
 # 📚 Catálogo de Runs - Boltz-1
-_Última atualização do servidor CMCAD: 25/10/2026 às 18:07_
+_Última atualização do servidor CMCAD: 26/10/2026 às 00:46_
 
 | ID da Run | Data do Checkpoint | Diretório de Origem |
 | :--- | :--- | :--- |
